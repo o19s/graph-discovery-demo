@@ -11,5 +11,6 @@ services:
       - ./neo4j/plugins:/plugins
       - ./neo4j/import:/import
     environment:
-      NEO4J_AUTH: neo4j/streams
+      #NEO4J_AUTH: neo4j/streams
+      NEO4J_AUTH: none
       NEO4J_dbms_logs_debug_level: DEBUG
