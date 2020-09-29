@@ -1,0 +1,39 @@
+// Misc Queries
+
+MATCH p=()-[r:industryArea]->() RETURN p LIMIT 25
+MATCH p=(:NAICS {title: 'Plumbing, Heating, and Air-Conditioning Contractors'}) RETURN p LIMIT 25
+MATCH p=(:NAICS {title: 'Plumbing, Heating, and Air-Conditioning Contractors'})--() RETURN p LIMIT 25
+MATCH p=(:NAICS {title: 'Plumbing, Heating, and Air-Conditioning Contractors'})--(b:Business) RETURN b.name,b.jobs LIMIT 25
+MATCH p=(:NAICS {title: 'Plumbing, Heating, and Air-Conditioning Contractors'})-[:business]->(b:Business) RETURN b.name,b.jobs
+MATCH p=(:NAICS {title: 'Plumbing, Heating, and Air-Conditioning Contractors'})--(b:Business) RETURN sum(b.jobs) LIMIT 25
+MATCH p=(:NAICS {title: 'Plumbing, Heating, and Air-Conditioning Contractors'})-[:business]->(b:Business) RETURN sum(b.jobs)
+MATCH p=(:NAICS)-[:business]->(b:Business) RETURN sum(b.jobs)
+
+
+MATCH (a:Business),(b:State)
+WHERE a.state = b.state
+CREATE (a)-[r:locatedIn]->(b)
+RETURN type(r)
+
+MATCH (a:Business),(b:State)
+WHERE a.state = b.state
+CREATE (b)-[r:stateOf]->(a)
+RETURN type(r)
+
+
+// misc...
+LOAD CSV WITH HEADERS FROM 'file:///small-sample.csv' AS row
+MERGE (e:Business {name: row.BusinessName, address: row.Address})
+WITH e, row
+MERGE (s:state {name: e:State})
+MERGE (e)-[r:locatedIn]->(s)
+
+LOAD CSV WITH HEADERS FROM 'file:///cities.csv' AS row
+MERGE (e:City {city: row.City})
+
+MATCH (a:Business),(b:City)
+WHERE a.City = b.name
+CREATE (a)-[r:locatedIn]->(b)
+RETURN type(r)
+
+MATCH (n) WHERE EXISTS(n.businessName) RETURN DISTINCT "node" as entity, n.businessName AS businessName LIMIT 25 UNION ALL MATCH ()-[r]-() WHERE EXISTS(r.businessName) RETURN DISTINCT "relationship" AS entity, r.businessName AS businessName LIMIT 25

@@ -1,0 +1,35 @@
+
+// Aggregate Queries
+
+MATCH (c:NAICS)-[:hasBusiness]->(d:Business)-[:inZip]->()-[:inState]->(s:State)
+WHERE d.jobs>0 AND c.title contains "Real Estate"
+RETURN distinct s.state as State,c.title as BusinessArea, sum(d.jobs) as AffectedJobs 
+ORDER BY State ASC
+
+MATCH (v:Veteran)-[vr:veteranBusiness]->(b:Business)
+WITH b,v,vr
+MATCH (c:NAICS)-[hb:hasBusiness]->(b)-[iz:inZip]->(zp:zipCode)-[ins:inState]->(s:State)
+WHERE b.jobs>0 AND c.title contains "Construction"
+with c,b,hb,s,v,vr,iz,zp,ins
+MATCH (b)-[lr:range]->(l:loanRange)
+with c,b,hb,s,v,vr,iz,zp,ins,l,lr
+MATCH (b)-[br:lender]->(bk:Lender)
+RETURN distinct s.state as State, sum(b.jobs) as AffectedJobs
+
+MATCH p=(:NAICS {title: 'Plumbing, Heating, and Air-Conditioning Contractors'})-->(b:Business) RETURN b.name,b.jobs
+
+MATCH (c:NAICS)-[:industry]->(d:Business) WHERE d.jobs>0 RETURN distinct c.title as BusinessArea, sum(d.jobs) as AffectedJobs ORDER BY AffectedJobs DESC
+
+MATCH (c:NAICS)-[:industry]->(d:Business) 
+WHERE d.jobs>0 AND c.title contains "Wireless"
+RETURN distinct c.title as BusinessArea, sum(d.jobs) as AffectedJobs 
+ORDER BY AffectedJobs DESC
+
+MATCH (c:State)-[:stateOf]->(d:Business) WHERE d.jobs>0 RETURN distinct c.state as State, sum(d.jobs) as AffectedJobs ORDER BY AffectedJobs DESC
+
+MATCH (c:Race)-[:raceOf]->(d:Business) 
+WHERE d.jobs>0 AND c.race contains "Black"
+RETURN distinct c.race as Race, sum(d.jobs) as AffectedJobs 
+ORDER BY AffectedJobs DESC
+
+

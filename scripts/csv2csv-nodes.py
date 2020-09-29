@@ -1,21 +1,24 @@
 import csv
 import json
+import sys
+import hashlib
 
-def loadNaics() :
-    with open('2017_NAICS_Index_File.csv') as csv_file:
+def loadNaics(naicsPath) :
+    with open(naicsPath) as csv_file:
         naics_reader = csv.DictReader(csv_file, delimiter=',')
         l = 0
         codes={}
         for row in naics_reader:
             if l == 0:
-                # print(f'Column names are {", ".join(row)}')
                 pass
             else:
-                codes[row['NAICS17']]=row["INDEX ITEM DESCRIPTION"]
-                # print(f'\t{l}. {json.dumps(bn)}')
+                codes[row['NAICS17']]=row["INDEX ITEM DESCRIPTION"].lower()
             l += 1
-    # print(codes)
     return codes
+
+def hash(s):
+    return hashlib.md5(s.encode()).hexdigest()
+
 
 
 def BN(id, row) :
@@ -26,7 +29,6 @@ def BN(id, row) :
     bn['address']=row["Address"]
     bn['city']=row["City"]
     bn['state']=row["State"]
-    bn['zip']=row["Zip"]
     bn['zip']=row["Zip"]
     bn['NAICSNodeId']=row["NAICSCode"]
     bn['LoanRange']=row["LoanRange"]
@@ -51,34 +53,30 @@ def NC(row, codes, ncd) :
             nc['name']=codes[row['NAICSCode']]
         else :
             nc['name']="No NAICS Label"
-    # print(nc)
-
-def BT(row,btd) :
-    id=hash(row['BusinessType'])
-    if not id in btd:
-        bt={}
-        bt['id']=id
-        bt['type']="BusinessTypeNode"
-        bt['name']=row['BusinessType']
-        btd[id]=bt
+        ncd[nid]=""
+        return nc
     
+if len(sys.argv)!=3:
+	print("Need file path/name for NAICS codes and source data")
+	sys.exit(1)
+	
+naicsPath = sys.argv[1]
+srcPath = sys.argv[2]
 
-codes=loadNaics()
+codes=loadNaics(naicsPath)
 bes=[]
 ncs=[]
 ncd={}
 bts=[]
 btd={}
-with open('small-sample.csv') as csv_file:
+with open(srcPath) as csv_file:
     csv_reader = csv.DictReader(csv_file, delimiter=',')
     l = 1
     for row in csv_reader:
         bes.append(BN(l, row))
         ncs.append(NC(row, codes, ncd))
-        bts.append(BT(row, btd))
         l += 1
-    print(json.dumps(bes))
+#    print(json.dumps(bes))
     print(json.dumps(ncs))
-    print(json.dumps(bts))
-    print(f'Processed {l} lines.')
+#    print(json.dumps(bts))
 

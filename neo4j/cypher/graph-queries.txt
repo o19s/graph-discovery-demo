@@ -1,0 +1,30 @@
+
+// Graph Queries
+
+MATCH (v:Veteran)-[vr:veteranBusiness]->(b:Business)
+where v.veteran='Veteran'
+WITH b,v,vr
+MATCH (c:NAICS)-[hb:hasBusiness]->(b)-[iz:inZip]->(zp:zipCode)-[ins:inState]->(s:State)
+WHERE b.jobs>0 AND c.title contains "Construction"
+with c,b,hb,s,v,vr,iz,zp,ins
+MATCH (b)-[lr:range]->(l:loanRange)
+with c,b,hb,s,v,vr,iz,zp,ins,l,lr
+MATCH (b)-[br:lender]->(bk:Lender)
+RETURN c,b,hb,s,v,vr,iz,zp,ins,l,lr,br,bk
+
+MATCH (v:Veteran)-[vr:veteranBusiness]->(b:Business)
+WITH b,v,vr
+MATCH (c:NAICS)-[hb:hasBusiness]->(b)-[iz:inZip]->(zp:zipCode)-[ins:inState]->(s:State)
+WHERE b.jobs>0 AND c.title contains "Construction"
+with c,b,hb,s,v,vr,iz,zp,ins
+MATCH (b)-[lr:range]->(l:loanRange)
+with c,b,hb,s,v,vr,iz,zp,ins,l,lr
+MATCH (b)-[br:lender]->(bk:Lender)
+RETURN c,b,hb,s,v,vr,iz,zp,ins,l,lr,br,bk
+
+MATCH p=(:NAICS {title: 'Plumbing, Heating, and Air-Conditioning Contractors'})-[r:hasBusiness]->() RETURN p LIMIT 25
+
+MATCH p=(:State {state: 'MD'})-[r:stateOf]->() RETURN p LIMIT 25
+
+MATCH p=(:Race {race: 'Black or African American'})-[r:raceOf]->() RETURN p LIMIT 25
+

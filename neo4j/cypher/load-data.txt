@@ -1,0 +1,170 @@
+root/AKIAURUN6DXGWXRHORHZ
+
+snap
+docker ps
+cd graph-discovery-demo/
+docker-compose down -v
+docker-compose up -d
+
+
+match(n:Business) detach delete n
+match(n:zipCodes) detach delete n
+match(n) detach delete n
+
+
+match(n:Business) detach delete n
+match(n:zipCodes) detach delete n
+match(n) detach delete n
+
+
+CREATE CONSTRAINT ON (naics:NAICS) ASSERT naics.naics IS UNIQUE
+CREATE CONSTRAINT ON (zip:zipCode) ASSERT zip.zip IS UNIQUE
+
+//  load data
+LOAD CSV WITH HEADERS FROM 'file:///naics_sample.csv' AS row
+MERGE (e:NAICS {naics: row.NAICS_Code, title: trim(row.NAICS_Title)})
+
+:auto USING PERIODIC COMMIT 2000
+LOAD CSV WITH HEADERS FROM 'file:///zip_code_sample.csv' AS row
+MERGE (e:zipCode {zip: row.zip, city: row.primary_city, lat: row.latitude, lon: row.longitude})
+SET e.county = CASE row.county WHEN null THEN "N/A" ELSE row.county END
+with e, row
+UNWIND row.state as st
+MERGE (r:State {state: st})
+MERGE (e)-[a:inState]->(r)
+MERGE (r)-[ao:stateOf]->(e)
+
+LOAD CSV WITH HEADERS FROM 'file:///loan-ranges.csv' AS row
+MERGE (e:loanRange {code: row.code, name: row.title, low: toInteger(row.low), high: toInteger(row.high)})
+
+
+LOAD CSV WITH HEADERS FROM 'file:///large-sample.csv' AS row
+MERGE (e:Business {name: row.BusinessName, address: row.Address})
+SET e.jobs = CASE row.JobsReported WHEN null THEN 0 ELSE toInteger(row.JobsReported) END
+with e, row
+UNWIND row.Lender as le
+MERGE (r:Lender {name: le})
+MERGE (e)-[a:lender]->(r)
+MERGE (r)-[ao:lent]->(e)
+with e, row
+UNWIND row.RaceEthnicity as re
+FOREACH ( ignoreMe in CASE WHEN re='Unanswered' THEN [] ELSE [1] END |
+MERGE (r:Race {race: re})
+MERGE (e)-[a:race]->(r)
+MERGE (r)-[ao:raceOf]->(e))
+with e, row
+UNWIND row.Veteran as ve
+FOREACH ( ignoreMe in CASE WHEN ve='Unanswered' THEN [] ELSE [1] END |
+MERGE (r:Veteran {veteran: ve})
+MERGE (e)-[a:isVeteran]->(r)
+MERGE (r)-[ao:veteranBusiness]->(e))
+with e, row
+UNWIND row.Zip as ze
+MERGE (z:zipCode {zip: ze})
+MERGE (e)-[a:inZip]->(z)
+MERGE (z)-[ao:zipOf]->(e)
+with e, row
+UNWIND row.NAICSCode as ne
+MERGE (n:NAICS {naics: ne})
+MERGE (e)-[a:industyArea]->(n)
+MERGE (n)-[ao:hasBusiness]->(e)
+with e, row
+UNWIND left(row.LoanRange,1) as lr
+MERGE (n:loanRange {code: lr})
+MERGE (e)-[a:range]->(n)
+MERGE (n)-[ao:loaned]->(e)
+
+// Graph Queries
+MATCH (v:Veteran)-[vr:veteranBusiness]->(b:Business)
+where v.veteran='Veteran'
+WITH b,v,vr
+MATCH (c:NAICS)-[hb:hasBusiness]->(b)-[iz:inZip]->(zp:zipCode)-[ins:inState]->(s:State)
+WHERE b.jobs>0 AND c.title contains "Construction"
+RETURN c,b,hb,s,v,vr,iz,zp,ins
+
+MATCH (v:Veteran)-[vr:veteranBusiness]->(b:Business)
+where v.veteran='Veteran'
+WITH b,v,vr
+MATCH (c:NAICS)-[hb:hasBusiness]->(b)-[iz:inZip]->(zp:zipCode)-[ins:inState]->(s:State)
+WHERE b.jobs>0 AND c.title contains "Construction"
+with c,b,hb,s,v,vr,iz,zp,ins
+MATCH (b)-[lr:range]->(l:loanRange)
+RETURN c,b,hb,s,v,vr,iz,zp,ins,l,lr
+
+// Aggregation Queries
+MATCH (c:NAICS)-[:hasBusiness]->(d:Business)-[:inZip]->()-[:inState]->(s:State)
+WHERE d.jobs>0 AND c.title contains "Real Estate"
+RETURN distinct s.state as State, sum(d.jobs) as AffectedJobs 
+ORDER BY State ASC
+
+MATCH (c:NAICS)-[:hasBusiness]->(d:Business)-[:inZip]->()-[:inState]->(s:State)
+WHERE d.jobs>0 AND c.title contains "Real Estate"
+RETURN distinct s.state as State,c.title as BusinessArea, sum(d.jobs) as AffectedJobs 
+ORDER BY State ASC
+
+MATCH (v:Veteran)-[:veteranBusiness]->(b:Business)
+where v.veteran='Veteran'
+WITH b
+MATCH (c:NAICS)-[:hasBusiness]->(b)-[:inZip]->()-[:inState]->(s:State)
+WHERE b.jobs>0 AND c.title contains "Real Estate"
+RETURN distinct s.state as State,c.title as BusinessArea, sum(b.jobs) as AffectedJobs 
+ORDER BY State ASC
+
+MATCH (v:Veteran)-[:veteranBusiness]->(b:Business)
+where v.veteran='Veteran'
+WITH b
+MATCH (c:NAICS)-[:hasBusiness]->(b)-[:inZip]->()-[:inState]->(s:State)
+WHERE b.jobs>0 AND c.title contains "Construction"
+RETURN distinct s.state as State,c.title as BusinessArea, sum(b.jobs) as AffectedJobs 
+ORDER BY State ASC
+
+
+
+// OLD
+
+LOAD CSV WITH HEADERS FROM "file:///roles.csv" AS csvLine
+MATCH (person:Person {id: toInteger(csvLine.personId)}),(movie:Movie {id: toInteger(csvLine.movieId)})
+CREATE (person)-[:PLAYED {role: csvLine.role}]->(movie)
+//  creates :PLAYED (role) relationship between person(id) and movie(movieId)
+
+LOAD CSV WITH HEADERS FROM 'file:///states.csv' AS row
+MERGE (e:State {state: row.State})
+
+// make relationships
+//  business->zip
+MATCH (a:Business),(b:zipCode)
+WHERE a.zip = b.zip
+CREATE (a)-[r:locatedIn]->(b)
+RETURN type(r)
+
+// zip->business
+MATCH (a:Business),(b:zipCode)
+WHERE a.zip = b.zip
+CREATE (b)-[r:zipOf]->(a)
+RETURN type(r)
+
+
+//  business->NAICs
+MATCH (a:Business),(b:NAICS)
+WHERE a.naics = b.naics
+CREATE (a)-[r:industryArea]->(b)
+RETURN type(r)
+
+// NAICS->business
+MATCH (a:Business),(b:NAICS)
+WHERE a.naics = b.naics
+CREATE (b)-[r:industry]->(a)
+RETURN type(r)
+
+// business->state
+MATCH (a:Business),(b:State)
+WHERE a.state = b.state
+CREATE (a)-[r:locatedIn]->(b)
+RETURN type(r)
+
+// state->business
+MATCH (a:Business),(b:State)
+WHERE a.state = b.state
+CREATE (b)-[r:stateOf]->(a)
+RETURN type(r)
+
